@@ -1,0 +1,15 @@
+<idea-plugin>
+    <id>io.github.tasukujp.sqlc</id>
+    <name>sqlc Support</name>
+    <vendor>tasukujp</vendor>
+    <description><![CDATA[
+        Removes false SQL resolve errors for sqlc parameters: <code>@name</code>,
+        <code>sqlc.arg()</code>, <code>sqlc.narg()</code>, <code>sqlc.slice()</code> and
+        <code>sqlc.embed()</code>. Applies only to files listed in the <code>queries</code> of sqlc.yaml.
+    ]]></description>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.database</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.inspectionSuppressor language="SQL" implementationClass="io.github.tasukujp.sqlc.SqlcInspectionSuppressor"/>
+    </extensions>
+</idea-plugin>
