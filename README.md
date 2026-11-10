@@ -1,12 +1,17 @@
 # jetbrains-plugin-sqlc
 
-Removes false SQL inspection errors for [sqlc](https://sqlc.dev) parameters in JetBrains IDEs.
+Removes false SQL inspection errors for [sqlc](https://sqlc.dev) parameters in JetBrains IDEs,
+and highlights the parameters.
 
 - `@name`
+- `$1`, `$2`, ...
 - `sqlc.arg()` / `sqlc.narg()` / `sqlc.slice()` / `sqlc.embed()`
 
 Errors are suppressed only at parameter positions in files listed under `queries` in `sqlc.yaml`.
 Other SQL errors are still reported.
+
+Parameters are shown in purple by default. In `sqlc.arg(name)`, `sqlc` uses the Go package color and
+`arg` uses the Go exported function call color. Change them in Settings > Editor > Color Scheme > sqlc.
 
 ## Requirements
 
