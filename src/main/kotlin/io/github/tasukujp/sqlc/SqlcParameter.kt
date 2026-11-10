@@ -1,18 +1,37 @@
 package io.github.tasukujp.sqlc
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.util.PsiTreeUtil
 
 private val SQLC_MACROS = setOf("arg", "narg", "slice", "embed")
+private val POSITIONAL_PARAMETER = Regex("""\$\d+""")
+
+internal enum class SqlcPart { PARAMETER, MACRO_QUALIFIER, MACRO_NAME }
 
 internal fun isSqlcParameter(element: PsiElement): Boolean {
     val leaf = PsiTreeUtil.getDeepestFirst(element)
-    return isAtParameter(leaf) || isMacroQualifier(leaf) || isUnquotedMacroArgument(leaf)
+    return isAtParameter(leaf) || isPositionalParameter(leaf) || isMacroQualifier(leaf) || isUnquotedMacroArgument(leaf)
+}
+
+// 葉ごとの役割。Annotator は注釈対象の要素の外を塗れないので、葉ごとに判定する。
+// マクロの `.` と括弧、クォートした名前は塗らずに元の色のまま残す
+internal fun sqlcPartOf(leaf: PsiElement): SqlcPart? = when {
+    isPositionalParameter(leaf) || isAtParameter(leaf) -> SqlcPart.PARAMETER
+    leaf.text == "@" && PsiTreeUtil.nextLeaf(leaf)?.let(::isAtParameter) == true -> SqlcPart.PARAMETER
+    isMacroQualifier(leaf) -> SqlcPart.MACRO_QUALIFIER
+    isMacroName(leaf) -> SqlcPart.MACRO_NAME
+    isUnquotedMacroArgument(leaf) && !isQuoted(leaf) -> SqlcPart.PARAMETER
+    else -> null
 }
 
 // `@ x` は PostgreSQL の絶対値演算子なので、空白を挟まない `@x` だけをパラメータとして扱う
 private fun isAtParameter(leaf: PsiElement): Boolean =
-    PsiTreeUtil.prevLeaf(leaf)?.text == "@"
+    leaf !is PsiWhiteSpace && PsiTreeUtil.prevLeaf(leaf)?.text == "@"
+
+// PostgreSQL 方言は `$1` を位置パラメータではなく列名として解釈する
+private fun isPositionalParameter(leaf: PsiElement): Boolean =
+    POSITIONAL_PARAMETER.matches(leaf.text)
 
 private fun isMacroQualifier(leaf: PsiElement): Boolean {
     if (leaf.text != "sqlc") return false
@@ -22,6 +41,12 @@ private fun isMacroQualifier(leaf: PsiElement): Boolean {
     return dot.text == "." && macro.text in SQLC_MACROS && paren.text == "("
 }
 
+private fun isMacroName(leaf: PsiElement): Boolean {
+    val dot = PsiTreeUtil.prevLeaf(leaf) ?: return false
+    val qualifier = PsiTreeUtil.prevLeaf(dot) ?: return false
+    return dot.text == "." && isMacroQualifier(qualifier)
+}
+
 private fun isUnquotedMacroArgument(leaf: PsiElement): Boolean {
     val paren = PsiTreeUtil.prevLeaf(leaf) ?: return false
     val macro = PsiTreeUtil.prevLeaf(paren) ?: return false
@@ -29,3 +54,6 @@ private fun isUnquotedMacroArgument(leaf: PsiElement): Boolean {
     val qualifier = PsiTreeUtil.prevLeaf(dot) ?: return false
     return paren.text == "(" && macro.text in SQLC_MACROS && dot.text == "." && qualifier.text == "sqlc"
 }
+
+private fun isQuoted(leaf: PsiElement): Boolean =
+    leaf.text.startsWith("'") || leaf.text.startsWith("\"")
